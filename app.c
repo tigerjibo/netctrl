@@ -213,6 +213,7 @@ int syscmd_proc(struct syscmd *cmd)
 		ret = syscmd_set_auth_port(cmd);
 		break;
 	default:
+		printf("unknown command\n");
 		break;
 	}
 
@@ -266,6 +267,11 @@ int32_t syscmd_parse_args(int32_t argc, char **argv)
 int main(int argc, char **argv)
 {
 	int ret = 0;
+
+	if (argc <= 1) {
+		usage();
+		return 0;
+	}
 	
 	ret = syscmd_parse_args(argc, argv);
 	printf("ret %d\n", ret);

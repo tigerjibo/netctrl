@@ -22,6 +22,8 @@ else
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 PWD       := $(shell pwd)
 
+all: app modules
+
 app:
 	gcc -o a.out app.c
 
