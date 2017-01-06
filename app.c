@@ -14,13 +14,14 @@
 
 /* should correct with kernel ID */
 #define NETCTRL_NETLINK_ID		24 	
-
 #define MAX_MSGSIZE 2048
+
 static struct option long_options[] = {
 {"ip",		1,		NULL,		'i'},
-{"help",	1,		NULL,		'h'},
+{"id",		1,		NULL,		'd'},
+{"help",	0,		NULL,		'h'},
 {"port",	1,		NULL,		'p'},
-{NULL,		0,		NULL,		0}
+{NULL,		0,		NULL,		 0}
 };
 
 /* system command type and data */
@@ -33,27 +34,21 @@ struct syscmd {
 };
 
 
-const char *const short_options = "hi:p:";
+const char *const short_options = "hi:p:d:";
 
 enum PARAM_TYPE {
 	PARAM_INT,
 	PARAM_STR
 };
 
-
 static struct syscmd g_sys_cmd;
 
 /* netctrl system command message type */
-enum NETCTRL_TYPE_E {
-	NETCTRL_AUTH_IP,
+enum NETCTRL_TYPE {
+	NETCTRL_AUTH_IP = 1,
 	NETCTRL_AUTH_PORT,
-	NETCTRL_MGMT_ADD,
-	NETCTRL_MGMT_DEL,
-	NETCTRL_CTRL_RECV,
-	NETCTRL_CTRL_SEND,
-	NETCTRL_NULL,
+    NETCTRL_AUTH_ID,
 };
-
 
 typedef struct msg_buf {
 	uint16_t msg_type;
@@ -61,12 +56,18 @@ typedef struct msg_buf {
 	uint8_t data[0];
 } msg_buf_t;
 
+
+struct local_id {
+    int id;
+};
+
+
 struct local_ip {
 	char ip[32];
 };
 
 struct local_port {
-	int32_t port;
+	int port;
 };
 
 int send_msg_to_kernel(uint8_t *buf, uint32_t buflen,
@@ -110,6 +111,7 @@ int send_msg_to_kernel(uint8_t *buf, uint32_t buflen,
 	memcpy(NLMSG_DATA(nlhdr), buf, buflen);
 	memset(&msg, 0, sizeof(struct msghdr));
 
+    nlhdr->nlmsg_type = ((msg_buf_t *)buf)->msg_type;
 	nlhdr->nlmsg_len = NLMSG_LENGTH(buflen);
 	nlhdr->nlmsg_pid = getpid();
 	nlhdr->nlmsg_flags = 0;
@@ -183,7 +185,6 @@ int syscmd_set_auth_port(struct syscmd *cmd)
 	return ret;
 }
 
-
 int syscmd_set_auth_ip(struct syscmd *cmd)
 {
 	int ret = 0;
@@ -201,6 +202,24 @@ int syscmd_set_auth_ip(struct syscmd *cmd)
 	return ret;
 }
 
+int syscmd_set_auth_id(struct syscmd *cmd)
+{
+	int ret = 0;
+	struct local_id id;
+
+    id.id = cmd->data;
+
+	ret = auth_kernel_config_cmd(cmd->type,
+			(uint8_t *)&id, sizeof(struct local_id));
+	if (ret < 0) {
+		printf("auth_kernel_config_cmd error\n");
+		return ret;
+	}
+
+	return ret;
+}
+
+
 int syscmd_proc(struct syscmd *cmd)
 {
 	int ret = 0;
@@ -211,6 +230,9 @@ int syscmd_proc(struct syscmd *cmd)
 		break;
 	case NETCTRL_AUTH_PORT:
 		ret = syscmd_set_auth_port(cmd);
+		break;
+	case NETCTRL_AUTH_ID:
+		ret = syscmd_set_auth_id(cmd);
 		break;
 	default:
 		printf("unknown command\n");
@@ -239,11 +261,14 @@ int32_t syscmd_parse_args(int32_t argc, char **argv)
 			break;
 		}
 
-		printf("optarg %s\n", optarg);
 		switch (c) {
 		case 'h':
 			usage();
 			ret = -1;
+			break;
+		case 'd':
+			g_sys_cmd.type = NETCTRL_AUTH_ID;
+			g_sys_cmd.data = atoi(optarg);
 			break;
 		case 'p':
 			g_sys_cmd.type = NETCTRL_AUTH_PORT;

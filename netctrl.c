@@ -29,19 +29,10 @@
 #include <linux/version.h>
 #include <linux/sched.h>
 
+#include "netctrl.h"
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("wbl");
-
-enum NETCTRL_TYPE {
-	NETCTRL_AUTH_IP,
-	NETCTRL_AUTH_PORT,
-};
-
-struct msg_buf {
-	u16 msg_type;
-	u16 msg_len;
-	unsigned char data[0];
-};
 
 static struct sock *netctrl_sock;
 
@@ -76,46 +67,73 @@ char *type2string(int cmdtype)
 		return "NETCTRL_AUTH_IP";
 	case NETCTRL_AUTH_PORT:
 		return "NETCTRL_AUTH_PORT";
+    case NETCTRL_AUTH_ID:
+        return "NETCTRL_AUTH_ID";
 	default:
 		return "unknown msg type";
 	}
 }
 
+int netctrl_auth_ip(struct auth_ip *ip)
+{
+    printk("[%s %d]ip %s\n", __FUNCTION__, __LINE__, ip->ip);
+    return 0;
+}
+
+int netctrl_auth_port(struct auth_port *port)
+{
+    printk("[%s %d]port %d\n", __FUNCTION__, __LINE__, port->port);
+    return 0;
+}
+
+int netctrl_auth_id(struct auth_id *id)
+{
+    printk("[%s %d]id %d\n", __FUNCTION__, __LINE__, id->id);
+    return 0;
+}
+
 /* process system command from user app space */
 static int netctrl_proc_msg(struct msg_buf *buf, int unipid)
 {
+    int ret = 0;
+
 	if (buf == NULL) {
 		/* invalid param */
 		return -1;
 	}
 
-	printk("msgtype %s\n", type2string(buf->msg_type));
-	
 	switch (buf->msg_type) {
 	case NETCTRL_AUTH_IP:
-		printk("ip %s\n", buf->data);
+        ret = netctrl_auth_ip((struct auth_ip*)buf->data);
 		break;
 	case NETCTRL_AUTH_PORT:
-		printk("port %d\n", *(int*)buf->data);
+        ret = netctrl_auth_port((struct auth_port*)buf->data);
 		break;
+    case NETCTRL_AUTH_ID:
+        ret = netctrl_auth_id((struct auth_id*)buf->data);
 	default:
 		break;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int netctrl_netlink_ok(struct sk_buff *skb, u16 msg_type)
 {
 	int err = 0;
 
+    printk("[%s %d] msgtype[%d]: %s\n", 
+            __FUNCTION__, __LINE__, msg_type, type2string(msg_type));
+
 	switch (msg_type) {
 	case NETCTRL_AUTH_IP:
-	case NETCTRL_AUTH_PORT:
-		break;
-	default:
-		err = -EINVAL;
-	}
+    case NETCTRL_AUTH_PORT:
+	case NETCTRL_AUTH_ID:
+        break;
+    default:
+        err = -EINVAL;
+        break;
+    }
 
 	return err;
 }
@@ -171,7 +189,6 @@ int netctrl_receive_skb(struct sk_buff *skb)
 	return 0;
 }
 
-
 /* receive messages from netlink socket. */
 static void netctrl_receive(struct sk_buff *skb)
 {
@@ -186,7 +203,7 @@ static __init int netctrl_init(void)
 		.input = netctrl_receive,
 	};
 
-	printk(KERN_INFO "wbl Netctrl start!\n");
+	printk(KERN_INFO "Netctrl start!\n");
 	netctrl_sock = netlink_kernel_create(&init_net, NETLINK_USERSOCK, &cfg);
 	if (!netctrl_sock)
 		return -ENOMEM;
@@ -197,7 +214,7 @@ static __init int netctrl_init(void)
 
 static __exit void netctrl_exit(void)
 {
-	printk(KERN_INFO "wbl Netctrl exit!\n");
+	printk(KERN_INFO "Netctrl exit!\n");
 	netlink_kernel_release(netctrl_sock);
 }
 
