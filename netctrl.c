@@ -23,6 +23,7 @@
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/netfilter.h>
+#include <linux/netfilter_bridge.h>
 #include <linux/netfilter_ipv4.h>
 #include <linux/spinlock.h>
 #include <linux/tty.h>
@@ -38,15 +39,84 @@ static struct sock *netctrl_sock;
 
 static DEFINE_MUTEX(netctrl_mutex);
 
-static struct nf_hook_ops netctrl_hook;
-
-unsigned int netctrl_hook_func(const struct nf_hook_ops *ops,
+unsigned int netctrl_hook_local_out(const struct nf_hook_ops *ops,
 			struct sk_buff *skb,
 			const struct nf_hook_state *state)
 {
 	return 0;
 }
 
+unsigned int netctrl_hook_pre_routing(const struct nf_hook_ops *ops,
+			struct sk_buff *skb,
+			const struct nf_hook_state *state)
+{
+	return 0;
+}
+
+unsigned int netctrl_hook_post_routing(const struct nf_hook_ops *ops,
+			struct sk_buff *skb,
+			const struct nf_hook_state *state)
+{
+	return 0;
+}
+
+unsigned int bridge_hook_pre_routing(const struct nf_hook_ops *ops,
+			struct sk_buff *skb,
+			const struct nf_hook_state *state)
+{
+	return 0;
+}
+
+
+
+static struct nf_hook_ops netctrl_hooks[] = {
+	{
+		.hook		=	bridge_hook_pre_routing,
+		.owner		=	THIS_MODULE,
+		.pf			=	PF_BRIDGE,
+		.hooknum	=   NF_BR_PRE_ROUTING,
+		.priority	=   NF_BR_PRI_FIRST,
+	},
+
+    {
+        .hook       =   netctrl_hook_local_out,
+        .owner      =   THIS_MODULE,
+        .pf         =   PF_INET,
+        .hooknum    =   NF_INET_LOCAL_OUT,
+        .priority   =   NF_IP_PRI_FIRST,
+    },
+
+    {
+        .hook       =   netctrl_hook_pre_routing,
+        .owner      =   THIS_MODULE,
+        .pf         =   PF_INET,
+        .hooknum    =   NF_INET_PRE_ROUTING,
+        .priority   =   NF_IP_PRI_FIRST,
+    },
+
+    {
+        .hook       =   netctrl_hook_post_routing,
+        .owner      =   THIS_MODULE,
+        .pf         =   PF_INET,
+        .hooknum    =   NF_INET_POST_ROUTING,
+        .priority   =   NF_IP_PRI_FIRST,
+    },
+};
+
+
+static int netctrl_hooks_init(void)
+{
+    int ret = 0;
+    ret = nf_register_hooks(netctrl_hooks, ARRAY_SIZE(netctrl_hooks));
+    if (ret)
+        printk("Failed to register hook\n");
+    else
+        printk("register hook success\n");
+
+    return ret;
+}
+
+#if 0
 static int netctrl_hook_init(void)
 {
 	netctrl_hook.hook = netctrl_hook_func;
@@ -58,7 +128,7 @@ static int netctrl_hook_init(void)
 
 	return 0;
 }
-
+#endif
 
 char *type2string(int cmdtype)
 {
@@ -208,7 +278,7 @@ static __init int netctrl_init(void)
 	if (!netctrl_sock)
 		return -ENOMEM;
 
-	//netctrl_hook_init();
+	netctrl_hooks_init();
 	return 0;
 }
 
@@ -216,6 +286,7 @@ static __exit void netctrl_exit(void)
 {
 	printk(KERN_INFO "Netctrl exit!\n");
 	netlink_kernel_release(netctrl_sock);
+	nf_register_hooks(netctrl_hooks, ARRAY_SIZE(netctrl_hooks));
 }
 
 module_init(netctrl_init);

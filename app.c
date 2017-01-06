@@ -70,6 +70,7 @@ struct local_port {
 	int port;
 };
 
+/* create a new netlink-socket to send message and then close it */
 int send_msg_to_kernel(uint8_t *buf, uint32_t buflen,
 			uint8_t module)
 {
@@ -160,6 +161,7 @@ int32_t auth_kernel_config_cmd(int16_t operation,
 		memcpy(msg->data, buf, buflen);
 	}
 
+    // create a new socket and send.
 	ret = send_msg_to_kernel((uint8_t *)msg, msglen,
 		NETLINK_USERSOCK);				
 	if (ret <= 0)
