@@ -43,28 +43,28 @@ unsigned int netctrl_hook_local_out(const struct nf_hook_ops *ops,
 			struct sk_buff *skb,
 			const struct nf_hook_state *state)
 {
-	return 0;
+	return NF_ACCEPT;
 }
 
 unsigned int netctrl_hook_pre_routing(const struct nf_hook_ops *ops,
 			struct sk_buff *skb,
 			const struct nf_hook_state *state)
 {
-	return 0;
+	return NF_ACCEPT;
 }
 
 unsigned int netctrl_hook_post_routing(const struct nf_hook_ops *ops,
 			struct sk_buff *skb,
 			const struct nf_hook_state *state)
 {
-	return 0;
+	return NF_ACCEPT;
 }
 
 unsigned int bridge_hook_pre_routing(const struct nf_hook_ops *ops,
 			struct sk_buff *skb,
 			const struct nf_hook_state *state)
 {
-	return 0;
+	return NF_ACCEPT;
 }
 
 
@@ -286,7 +286,7 @@ static __exit void netctrl_exit(void)
 {
 	printk(KERN_INFO "Netctrl exit!\n");
 	netlink_kernel_release(netctrl_sock);
-	nf_register_hooks(netctrl_hooks, ARRAY_SIZE(netctrl_hooks));
+	nf_unregister_hooks(netctrl_hooks, ARRAY_SIZE(netctrl_hooks));
 }
 
 module_init(netctrl_init);
